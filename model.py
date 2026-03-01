@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from sklearn.inspection import permutation_importance
-from sklearn.linear_model import LinearRegression, LassoCV, RidgeCV,ElasticNetCV, Lasso
+from sklearn.linear_model import LassoCV, RidgeCV,ElasticNetCV
 from sklearn.model_selection import RepeatedKFold, cross_validate
 import matplotlib.pyplot as plt
 from data import normalize
@@ -9,44 +9,37 @@ import seaborn as sns
 sns.set_theme() # Set searborn as default
 
 def evaluate_models(X, y):
-    # Define the cross-validation strategy: 5 folds, repeated 10 times with different seeds
-    rkf = RepeatedKFold(n_splits=5, n_repeats=10, random_state=42)
+    rkf = RepeatedKFold(n_splits=5, n_repeats=50, random_state=42)
     
-    models: dict[str, LinearRegression | LassoCV | RidgeCV | ElasticNetCV] = {
-        "OLS (Baseline)": LinearRegression(),
-        "Lasso (L1)": LassoCV(cv=5, max_iter=10000),
-        "Ridge (L2)": RidgeCV(cv=5),
-        "Elastic Net": ElasticNetCV(l1_ratio=[.1, .5, .7, .9, .95, .99, 1], cv=5, max_iter=10000)
+    # Define models with internal CV
+    models = {
+        "Lasso": LassoCV(cv=5, max_iter=10000),
+        "Ridge": RidgeCV(cv=5),
+        "Elastic Net": ElasticNetCV(l1_ratio=[.1, .5, .7, .9, 1], cv=5, max_iter=10000)
     }
     
-    results = []
+    summary_stats = []
 
     for name, model in models.items():
-        # cv_results returns scores for every fold in every repetition
+        print(f"Evaluating {name}...")
         cv_results = cross_validate(
             model, X, y,
             cv=rkf, 
             scoring='neg_root_mean_squared_error',
-            n_jobs=-1,
-            return_estimator=True
+            return_estimator=True,
+            n_jobs=-1
         )
+
+        alphas = [est.alpha_ for est in cv_results['estimator']]
         
-        # Convert negative RMSE to positive
-        rmse_scores = -cv_results['test_score']
-        fitted_model = cv_results['estimator'][0]  # Get the first fitted model for hyperparameter info
-        
-        results.append({
+        summary_stats.append({
             "Model": name,
-            "Mean RMSE": np.mean(rmse_scores),
-            "Std RMSE": np.std(rmse_scores)
+            "Mean RMSE": np.mean(-cv_results['test_score']),
+            "Avg Best Alpha": np.mean(alphas),
+            "Alpha Std Dev": np.std(alphas) # High std dev means the model is unstable
         })
 
-        if isinstance(fitted_model, (LassoCV, RidgeCV, ElasticNetCV)):
-            print(f"{name} - Best alpha: {fitted_model.alpha_}")
-            if isinstance(fitted_model, ElasticNetCV):
-                print(f"{name} - Best l1_ratio: {fitted_model.l1_ratio_}")
-    
-    return pd.DataFrame(results)
+    return pd.DataFrame(summary_stats)
 
 if __name__ == "__main__":
     from data import load_data
@@ -64,15 +57,15 @@ if __name__ == "__main__":
     print(summary.to_string(index=False))
 
     # Assuming your best model is fitted
-    best_lasso = Lasso(alpha=0.6413483150282301)
-    best_lasso.fit(X, Y_raw)
+    final_lasso = LassoCV(cv=5, max_iter=10000)
+    final_lasso.fit(X, Y)
 
     # Count how many features are non-zero
-    n_features_kept = np.sum(best_lasso.coef_ != 0)
+    n_features_kept = np.sum(final_lasso.coef_ != 0)
     print(f"Lasso kept {n_features_kept} features and discarded {X.shape[1] - n_features_kept}.")
 
     # Get predictions
-    y_pred = best_lasso.predict(X)
+    y_pred = final_lasso.predict(X)
     residuals = Y_raw.ravel() - y_pred
 
     plt.figure(figsize=(10, 5))
@@ -98,7 +91,7 @@ if __name__ == "__main__":
 
     # 1. Extract coefficients
     # If using a Pipeline, use: coefs = model.named_steps['regressor'].coef_
-    coefs = best_lasso.coef_
+    coefs = final_lasso.coef_
     feature_names = [f"X_{i}" for i in range(len(coefs))] # Ensure this matches your post-encoding column names
 
     # 2. Create a DataFrame for easy sorting
@@ -125,7 +118,7 @@ if __name__ == "__main__":
 
     # Permutation importance of features
     result = permutation_importance(
-        best_lasso, X, Y,
+        final_lasso, X, Y,
         n_repeats=10, 
         random_state=42, 
         scoring='neg_root_mean_squared_error'

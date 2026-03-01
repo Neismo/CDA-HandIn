@@ -14,42 +14,25 @@ def load_data(file_path: str = "data/case1Data.csv") -> tuple[np.ndarray, np.nda
 
 def preprocess_features(
     X: np.ndarray,
-    drop_feature_1based: int = 96,
-    discrete_unique_max: int = 10,
-    discrete_ratio_max: float = 0.05,
-    integer_tol: float = 1e-8,
+    drop_idx: int,
+    categorical_indices_after_drop: list[int]
 ) -> tuple[np.ndarray, dict]:
     n_samples, n_features = X.shape
-    drop_idx = drop_feature_1based - 1
+    drop_idx
 
     if not (0 <= drop_idx < n_features):
         raise ValueError(
-            f"Requested feature {drop_feature_1based} to drop, but X has only {n_features} features."
+            f"Requested feature {drop_idx} to drop, but X has only {n_features} features."
         )
 
     keep_mask = np.ones(n_features, dtype=bool)
     keep_mask[drop_idx] = False
     X_reduced = X[:, keep_mask]
+
     remaining_original_indices = np.arange(n_features)[keep_mask]
 
-    categorical_mask = np.zeros(X_reduced.shape[1], dtype=bool)
-    for idx in range(X_reduced.shape[1]):
-        values = X_reduced[:, idx]
-        values = values[~np.isnan(values)]
-
-        if len(values) == 0:
-            continue
-
-        n_unique = np.unique(values).size
-        unique_ratio = n_unique / len(values)
-        is_integer_like = np.all(np.abs(values - np.round(values)) < integer_tol)
-
-        categorical_mask[idx] = is_integer_like and (
-            n_unique <= discrete_unique_max or unique_ratio <= discrete_ratio_max
-        )
-
-    cat_idx = np.where(categorical_mask)[0]
-    cont_idx = np.where(~categorical_mask)[0]
+    cat_idx = np.array(categorical_indices_after_drop)
+    cont_idx = np.setdiff1d(np.arange(n_features-1), cat_idx)
 
     if len(cont_idx) > 0:
         cont_imputer = SimpleImputer(
@@ -84,7 +67,7 @@ def preprocess_features(
     X_processed = np.hstack([X_cont, X_cat])
 
     info = {
-        "dropped_feature_1based": drop_feature_1based,
+        "dropped_feature": drop_idx + 1,
         "remaining_feature_count": int(X_reduced.shape[1]),
         "categorical_features_1based": (remaining_original_indices[cat_idx] + 1).tolist(),
         "continuous_features_1based": (remaining_original_indices[cont_idx] + 1).tolist(),
@@ -119,9 +102,9 @@ def normalize(data: np.ndarray, feature_indices: list[int]) -> tuple[np.ndarray,
 
 if __name__ == "__main__":
     Y_raw, X_raw = load_data()
-    X, preprocess_info = preprocess_features(X_raw)
+    X, preprocess_info = preprocess_features(X_raw, 96, categorical_indices_after_drop=[95, 96, 97, 98])
     print(
-        f"Dropped feature {preprocess_info['dropped_feature_1based']}. "
+        f"Dropped feature {preprocess_info['dropped_feature']}. "
         f"Categorical features encoded: {len(preprocess_info['categorical_features_1based'])}. "
         f"Total features after preprocessing: {preprocess_info['processed_feature_count']}"
     )
