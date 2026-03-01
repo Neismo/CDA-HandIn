@@ -2,7 +2,7 @@ import numpy as np
 from sklearn.preprocessing import OneHotEncoder
 import seaborn as sns
 from sklearn.experimental import enable_iterative_imputer  # noqa: F401
-from sklearn.impute import SimpleImputer
+from sklearn.impute import SimpleImputer, IterativeImputer 
 sns.set_theme() # Set searborn as default
 
 def load_data(file_path: str = "data/case1Data.csv") -> tuple[np.ndarray, np.ndarray]:
@@ -35,9 +35,11 @@ def preprocess_features(
     cont_idx = np.setdiff1d(np.arange(n_features-1), cat_idx)
 
     if len(cont_idx) > 0:
-        cont_imputer = SimpleImputer(
-            strategy="mean",
-            missing_values=np.nan,
+        cont_imputer = IterativeImputer(
+            max_iter=10,
+            random_state=42,
+            initial_strategy='median',
+            imputation_order='ascending'
         )
         X_cont = cont_imputer.fit_transform(X_reduced[:, cont_idx])
     else:
