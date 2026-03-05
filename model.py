@@ -84,7 +84,7 @@ if __name__ == "__main__":
     """
 
     X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.2, random_state=123) # Just to set the seed for permutation importance later
-    X_train_standardized, _, _ = normalize(X_train, list(range(X_train.shape[1])))
+    X_train_standardized, _, _ = normalize(X_train, list(range(95)))
     selected_alphas = np.logspace(-2, 1, 50)
     lasso_alpha_summary = cross_validate_lasso_alphas(X_train_standardized, y_train, selected_alphas)
     print("\n--- Lasso RMSE by Selected Alpha Values ---")
