@@ -24,7 +24,8 @@ C_tr = data_tr.loc[:].to_numpy(dtype=int)[:, 96:]
 nan_id = np.array(np.where(np.isnan(X_tr)))
 feature_means = np.nanmean(X_tr, axis=0)
 feature_stds = np.nanstd(X_tr, axis=0)
-print(feature_means, feature_stds)
+
+#print(feature_means, feature_stds)
 for nan_element in nan_id.T:
     row_id, col_id = nan_element
     X_tr[row_id, col_id] = np.random.normal(loc=feature_means[col_id], scale=feature_stds[col_id])
@@ -82,7 +83,7 @@ one_se_id = np.max(np.argwhere(mean_rmse < threshold))
 max_alpha = alphas[one_se_id]
 
 plt.errorbar(alphas, mean_rmse, yerr=SEs, color='navy', ecolor='lightsteelblue', label='Standard Errors')
-plt.axvline(max_alpha, color='green', linestyle='-.', alpha=0.4, label='1SE lambda')
+plt.axvline(max_alpha, color='green', linestyle='-.', alpha=0.4, label='1SE $\\lambda$')
 plt.axhline(threshold, color='red', linestyle='-.', alpha=0.4, label='threshold')
 plt.axhline(min_rmse, color='blue', linestyle='-.', alpha=0.4, label='minimum RMSE')
 
