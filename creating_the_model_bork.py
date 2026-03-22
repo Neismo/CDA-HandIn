@@ -190,10 +190,16 @@ ci_lower, ci_upper = stats.t.interval(
 )
 
 # Get OUT-OF-FOLD predictions — not lasso.predict(X_train)
-oof_preds = cross_val_predict(elastic, X_tr, y_tr, cv=n_splits)
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    oof_preds = cross_val_predict(elastic, X_tr, y_tr, cv=2, n_jobs=-1)
 
 # Correct residuals
 residuals = y_tr - oof_preds  # ← these are honest
+
+scaler = StandardScaler()
+X_tr = scaler.fit_transform(X_tr)
+X_tst = scaler.transform(X_tst)
 
 kliep = DensityRatioEstimator(sigmas=[max_alpha])
 kliep.fit(X_tr, X_tst)  # keyword arguments are X_train and X_test
