@@ -148,10 +148,10 @@ coefs_opt_tst = elasticmodel.coef_
 
 # Plotting
 plt.figure(figsize=(8, 5))
-plt.errorbar(alphas, mean_rmse, yerr=SEs, color='navy', ecolor='lightsteelblue', label='Standard Errors')
-plt.axvline(max_alpha, color='green', linestyle='-.', alpha=0.4, label=f'1SE $\\lambda$ ({estimated_test_rmse:.2f})')
+plt.errorbar(alphas, mean_rmse, yerr=SEs, color='navy', ecolor='lightsteelblue', label='RMSE')
+plt.axvline(max_alpha, color='green', linestyle='-.', alpha=0.4, label=f'1SE $\\lambda$ ({max_alpha:.2f})')
 plt.axhline(threshold, color='red', linestyle='-.', alpha=0.4, label='Threshold')
-plt.axvline(alpha_opt, color='blue', linestyle='-.', alpha=0.4, label=f'Minimum RMSE ({min_rmse:.2f})')
+plt.axvline(alpha_opt, color='blue', linestyle='-.', alpha=0.4, label=f'Minimum RMSE $\\lambda$ ({alpha_opt:.2f})')
 
 plt.legend(loc='best')
 plt.xscale('log') # plt.semilogx() works, but setting scale is often cleaner with errorbars
