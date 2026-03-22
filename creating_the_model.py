@@ -5,6 +5,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import ElasticNetCV
 from sklearn.pipeline import make_pipeline
+from sklearn.model_selection import cross_val_predict
 import seaborn as sns
 import warnings
 import math as m
@@ -44,8 +45,8 @@ for nan_element in nan_id_tst.T:
 
 # use elastic net to find best fit
 alphas = np.logspace(-1, 4, 200)
-l1_ratios = [0, 0.1, 0.5, 0.95, 0.99, 1]
-K_folds = 10
+l1_ratios = [0.95, 0.99, 1]
+K_folds = 5
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore"),
@@ -101,9 +102,29 @@ print(f'optimal l1_ratio: {l1_ratio_opt},\n'
       f' optimal lambda: {alpha_opt}, 1SE max lambda: {max_alpha},\n '
       f'min RMSE = {min_rmse}, 1SE RMSE = {mean_rmse[one_se_id]}')
 
+# Get OUT-OF-FOLD predictions — not lasso.predict(X_train)
+oof_preds = cross_val_predict(elastic, X_tr, y_tr, cv=5)
+
+# Correct residuals
+residuals = y_tr - oof_preds  # ← these are honest
 kliep = DensityRatioEstimator(sigmas=[max_alpha])
 kliep.fit(X_tr, X_tst)  # keyword arguments are X_train and X_test
 w = kliep.predict(X_tr)
 w_norm = w / w.sum()
 rmse_estimate = np.sqrt(np.sum(w_norm * residuals**2))
 print(rmse_estimate)
+
+# 1. Check effective sample size
+ess = np.sum(w)**2 / np.sum(w**2)
+print(f"ESS: {ess:.1f} out of {len(w)} training points")
+# Rule of thumb: ESS < 0.1 * n is a red flag
+
+# 2. Check weight distribution
+print(f"Max weight: {w.max():.2f}, Median: {np.median(w):.2f}")
+# Max >> median suggests instability
+
+# 3. Compare weighted vs unweighted RMSE from same residuals
+rmse_unweighted = np.sqrt(np.mean(residuals**2))
+rmse_weighted   = np.sqrt(np.sum(w_norm * residuals**2))
+print(f"Ratio: {rmse_unweighted / rmse_weighted:.2f}")
+# Ratio >> 1.5 or so warrants investigation
