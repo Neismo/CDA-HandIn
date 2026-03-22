@@ -8,6 +8,7 @@ from sklearn.pipeline import make_pipeline
 import seaborn as sns
 import warnings
 import math as m
+from pykliep import DensityRatioEstimator
 sns.set_style('white')
 
 # load
@@ -21,24 +22,26 @@ X_tr = data_tr.loc[:].to_numpy()[:, 1:]
 C_tr = data_tr.loc[:].to_numpy(dtype=int)[:, 96:]
 
 # clean -> next idea: draw values from normal distribution, with feature's estimated mean and stdev
-nan_id = np.array(np.where(np.isnan(X_tr)))
+nan_id_tr = np.array(np.where(np.isnan(X_tr)))
 feature_means = np.nanmean(X_tr, axis=0)
 feature_stds = np.nanstd(X_tr, axis=0)
-print(feature_means, feature_stds)
-for nan_element in nan_id.T:
+for nan_element in nan_id_tr.T:
     row_id, col_id = nan_element
     X_tr[row_id, col_id] = np.random.normal(loc=feature_means[col_id], scale=feature_stds[col_id])
 
 
-data_tst = pd.read_csv(r"data/case1Data_Xnew.csv")
-X_tst = data_tst.loc[:].to_numpy()[:, 1:]
-C_tst = data_tst.loc[:].to_numpy(dtype=int)[:, 96:]
 
-feature_correlation = np.corrcoef(X_tr, rowvar=False)
-highest_correlation = np.max(feature_correlation-np.eye(len(feature_correlation)))
+data_tst = pd.read_csv(r"data/case1Data_Xnew.csv")
+X_tst = data_tst.loc[:].to_numpy()[:, :]
+C_tst = data_tst.loc[:].to_numpy(dtype=int)[:, 95:]
+
+nan_id_tst = np.array(np.where(np.isnan(X_tst)))
+for nan_element in nan_id_tst.T:
+    row_id, col_id = nan_element
+    X_tst[row_id, col_id] = np.random.normal(loc=feature_means[col_id], scale=feature_stds[col_id])
 
 # use elastic net to find best fit
-alphas = np.logspace(-1, 2, 200)
+alphas = np.logspace(-1, 4, 200)
 l1_ratios = [0, 0.1, 0.5, 0.95, 0.99, 1]
 K_folds = 10
 
@@ -55,12 +58,12 @@ training_fit = model.predict(X_tr)
 
 residuals = y_tr - training_fit
 
-"""fig, axs = plt.subplots(1, 2)
+fig, axs = plt.subplots(1, 2)
 
 axs[0].scatter(y_tr, residuals)
 axs[1].scatter(training_fit, y_tr)
 axs[1].plot(training_fit, training_fit, 'r--', alpha=0.5)
-plt.show()"""
+plt.show()
 
 # 1 SE rule
 l1_ratio_opt = elastic.l1_ratio_
@@ -81,10 +84,10 @@ threshold = min_rmse + SEs[min_rmse_id]
 one_se_id = np.max(np.argwhere(mean_rmse < threshold))
 max_alpha = alphas[one_se_id]
 
-plt.errorbar(alphas, mean_rmse, yerr=SEs, color='navy', ecolor='lightsteelblue', label='Standard Errors')
+plt.errorbar(alphas, mean_rmse, yerr=SEs, color='navy', ecolor='lightsteelblue', label='RMSE')
 plt.axvline(max_alpha, color='green', linestyle='-.', alpha=0.4, label='1SE lambda')
 plt.axhline(threshold, color='red', linestyle='-.', alpha=0.4, label='threshold')
-plt.axhline(min_rmse, color='blue', linestyle='-.', alpha=0.4, label='minimum RMSE')
+plt.axhline(min_rmse, color='blue', linestyle='-.', alpha=0.4, label='Standard Errors')
 
 plt.legend(loc='best')
 plt.semilogx()
@@ -95,3 +98,10 @@ plt.show()
 print(f'optimal l1_ratio: {l1_ratio_opt},\n'
       f' optimal lambda: {alpha_opt}, 1SE max lambda: {max_alpha},\n '
       f'min RMSE = {min_rmse}, 1SE RMSE = {mean_rmse[one_se_id]}')
+
+kliep = DensityRatioEstimator(sigmas=[max_alpha])
+kliep.fit(X_tr, X_tst)  # keyword arguments are X_train and X_test
+w = kliep.predict(X_tr)
+w_norm = w / w.sum()
+rmse_estimate = np.sqrt(np.sum(w_norm * residuals**2))
+print(rmse_estimate)
