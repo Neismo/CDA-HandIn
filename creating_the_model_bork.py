@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy import stats
+from sklearn.calibration import cross_val_predict
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import ElasticNetCV
 from sklearn.linear_model import ElasticNet
@@ -187,6 +188,12 @@ ci_lower, ci_upper = stats.t.interval(
     loc=mean_rmse_1se, 
     scale=std_rmse_1se
 )
+
+# Get OUT-OF-FOLD predictions — not lasso.predict(X_train)
+oof_preds = cross_val_predict(elastic, X_tr, y_tr, cv=n_splits)
+
+# Correct residuals
+residuals = y_tr - oof_preds  # ← these are honest
 
 kliep = DensityRatioEstimator(sigmas=[max_alpha])
 kliep.fit(X_tr, X_tst)  # keyword arguments are X_train and X_test
