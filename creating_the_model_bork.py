@@ -9,6 +9,9 @@ from sklearn.model_selection import RepeatedKFold
 from sklearn.pipeline import make_pipeline
 import seaborn as sns
 import warnings
+
+from pykliep import DensityRatioEstimator
+
 sns.set_style('white')
 
 _SEED = 1983202
@@ -99,6 +102,9 @@ with warnings.catch_warnings():
     
 elastic = model.named_steps["elasticnetcv"]
 
+training_fit = model.predict(X_tr)
+residuals = y_tr - training_fit
+
 # 1 SE rule calculations
 l1_ratio_opt = elastic.l1_ratio_
 l1_ratio_opt_id = np.argwhere(np.abs(np.array(l1_ratios) - l1_ratio_opt) < 10e-5)[0][0]
@@ -134,7 +140,7 @@ final_model.fit(X_tr, y_tr)
 # Predict on test data
 y_pred_tst = final_model.predict(X_tst)
 
-np.savetxt("data/predictions.csv", y_pred_tst, delimiter=",", header=None)
+np.savetxt("data/predictions.csv", y_pred_tst, delimiter=",")
 
 elasticmodel = final_model.named_steps["elasticnet"]
 coefs_opt_tst = elasticmodel.coef_
@@ -182,8 +188,16 @@ ci_lower, ci_upper = stats.t.interval(
     scale=std_rmse_1se
 )
 
+kliep = DensityRatioEstimator(sigmas=[max_alpha])
+kliep.fit(X_tr, X_tst)  # keyword arguments are X_train and X_test
+w = kliep.predict(X_tr)
+w_norm = w / w.sum()
+rmse_estimate = np.sqrt(np.sum(w_norm * residuals**2))
+print(rmse_estimate)
+
 print("--- 95% Confidence Interval for 1-SE RMSE ---")
 print(f"Mean RMSE Estimate: {mean_rmse_1se:.4f}")
+print(f"KLIEP estimate: {rmse_estimate:.4f}")
 print(f"Standard Error:     {se_rmse_1se:.4f}")
 print(f"95% CI:             [{ci_lower:.4f}, {ci_upper:.4f}]")
 
@@ -200,3 +214,4 @@ plt.ylabel('Frequency')
 plt.legend()
 plt.tight_layout()
 plt.show()
+
