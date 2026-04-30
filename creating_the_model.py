@@ -103,7 +103,7 @@ print(f'optimal l1_ratio: {l1_ratio_opt},\n'
       f'min RMSE = {min_rmse}, 1SE RMSE = {mean_rmse[one_se_id]}')
 
 # Get OUT-OF-FOLD predictions — not lasso.predict(X_train)
-oof_preds = cross_val_predict(elastic, X_tr, y_tr, cv=5)
+oof_preds = cross_val_predict(elastic, X_tr, y_tr, cv=5, n_jobs=-1)
 
 # Correct residuals
 residuals = y_tr - oof_preds  # ← these are honest
@@ -125,6 +125,6 @@ print(f"Max weight: {w.max():.2f}, Median: {np.median(w):.2f}")
 
 # 3. Compare weighted vs unweighted RMSE from same residuals
 rmse_unweighted = np.sqrt(np.mean(residuals**2))
-rmse_weighted   = np.sqrt(np.sum(w_norm * residuals**2))
+rmse_weighted = np.sqrt(np.sum(w_norm * residuals**2))
 print(f"Ratio: {rmse_unweighted / rmse_weighted:.2f}")
 # Ratio >> 1.5 or so warrants investigation
